@@ -8,11 +8,18 @@ import (
 var NextJsWorkflowConfig = &WorkflowConfig{
 	WorkflowName: "Next JS Workflow",
 	StepGraph: &graph.StepGraph{
-		StartingNode: steps.CODE_GENERATE_CSS_STEP,
+		StartingNode: steps.GIT_CREATE_BRANCH_STEP,
 		Nodes: map[steps.StepName]*graph.StepNode{
+			steps.GIT_CREATE_BRANCH_STEP: {
+				Step: &steps.GitMakeBranchStep{},
+				Transitions: map[graph.ExecutionState]*steps.StepName{
+					graph.ExecutionSuccessState: &steps.CODE_GENERATE_CSS_STEP,
+					graph.ExecutionErrorState:   nil,
+				},
+			},
 			steps.CODE_GENERATE_CSS_STEP: {
 				Step: &steps.GenerateCodeStep{
-					MaxLoopIterations: 15,
+					MaxLoopIterations: 10,
 					File:              "globals.css",
 				},
 				Transitions: map[graph.ExecutionState]*steps.StepName{
@@ -31,7 +38,7 @@ var NextJsWorkflowConfig = &WorkflowConfig{
 			},
 			steps.CODE_GENERATE_LAYOUT_STEP: {
 				Step: &steps.GenerateCodeStep{
-					MaxLoopIterations: 15,
+					MaxLoopIterations: 10,
 					File:              "layout.tsx",
 				},
 				Transitions: map[graph.ExecutionState]*steps.StepName{
@@ -50,7 +57,7 @@ var NextJsWorkflowConfig = &WorkflowConfig{
 			},
 			steps.CODE_GENERATE_PAGE_STEP: {
 				Step: &steps.GenerateCodeStep{
-					MaxLoopIterations: 15,
+					MaxLoopIterations: 10,
 					File:              "page.tsx",
 				},
 				Transitions: map[graph.ExecutionState]*steps.StepName{
@@ -77,7 +84,7 @@ var NextJsWorkflowConfig = &WorkflowConfig{
 			},
 			steps.RETRY_CODE_GENERATE_STEP: {
 				Step: &steps.GenerateCodeStep{
-					MaxLoopIterations: 15,
+					MaxLoopIterations: 10,
 					Retry:             true,
 				},
 				Transitions: map[graph.ExecutionState]*steps.StepName{

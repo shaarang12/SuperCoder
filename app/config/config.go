@@ -14,6 +14,7 @@ var config = koanf.New(".")
 func LoadConfig() (*koanf.Koanf, error) {
 	// Load default configurations
 	err := config.Load(confmap.Provider(map[string]interface{}{
+		"domain":                     "developer.superagi.com",
 		"app.env":                    "development",
 		"db.host":                    "localhost",
 		"db.user":                    "postgres",
@@ -23,7 +24,7 @@ func LoadConfig() (*koanf.Koanf, error) {
 		"redis.host":                 "localhost",
 		"redis.port":                 6379,
 		"redis.db":                   0,
-		"github.redirect.url":        "http://localhost:3000/api/github/callback",
+		"github.redirect.url":        "http://localhost:8080/api/github/callback",
 		"github.frontend.url":        "http://localhost:3000",
 		"jwt.secret.key":             "asdlajksdjaskdajskdlasd",
 		"jwt.expiry.hours":           "200h",
@@ -32,6 +33,15 @@ func LoadConfig() (*koanf.Koanf, error) {
 			"working": map[string]interface{}{
 				"dir": "/workspaces",
 			},
+		},
+		"filestore": map[string]interface{}{
+			"type": "local",
+			"local": map[string]interface{}{
+				"dir": "/filestore",
+			},
+		},
+		"aws": map[string]interface{}{
+			"region": "us-west-2",
 		},
 	}, "."), nil)
 	if err != nil {

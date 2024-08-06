@@ -9,26 +9,39 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"go.uber.org/zap"
 )
 
 type NextJsUpdateCodeFileExecutor struct {
 	executionStepService *services.ExecutionStepService
 	activityLogService   *services.ActivityLogService
+	projectNotificationService *services.ProjectNotificationService
+	logger               *zap.Logger
 }
 
 func NewNextJsUpdateCodeFileExecutor(
 	executionStepService *services.ExecutionStepService,
 	activeLogService *services.ActivityLogService,
+	projectNotificationService *services.ProjectNotificationService,
+	logger *zap.Logger,
 ) *NextJsUpdateCodeFileExecutor {
 	return &NextJsUpdateCodeFileExecutor{
 		executionStepService: executionStepService,
 		activityLogService:   activeLogService,
+		projectNotificationService: projectNotificationService,
+		logger: 			  logger,
 	}
 }
 
 type Response struct {
 	LLMResponse string `json:"llm_response"`
 	FileName    string `json:"file_name"`
+}
+
+type FileUpdate struct {
+	ProjectID uint   `json:"project_id"`
+	StoryID   uint   `json:"story_id"`
+	FileName  string `json:"file_name"`
 }
 
 func (e NextJsUpdateCodeFileExecutor) Execute(step steps.UpdateCodeFileStep) error {
@@ -67,7 +80,6 @@ func (e NextJsUpdateCodeFileExecutor) Execute(step steps.UpdateCodeFileStep) err
 		return err
 	}
 	if step.Retry {
-		fmt.Println("___Response to UpdateCodeFile___ \n", response)
 		err = e.UpdateReGeneratedCodeFile(response, step)
 		if err != nil {
 			fmt.Println("Error updating regenerated code: ", err.Error())
@@ -79,8 +91,32 @@ func (e NextJsUpdateCodeFileExecutor) Execute(step steps.UpdateCodeFileStep) err
 			return err
 		}
 	}
+
+	fileName = strings.TrimPrefix(fileName, "app/")
+	err = e.activityLogService.CreateActivityLog(step.Execution.ID, step.ExecutionStep.ID, "INFO", fmt.Sprintf("Updated file %s", fileName))
+	if err != nil {
+		fmt.Println("Error creating activity log" + err.Error())
+		return err
+	}
 	fmt.Println("File Updated Successfully")
-	return nil
+
+    	fileUpdate := FileUpdate{
+		ProjectID: step.Project.ID,
+		StoryID:   step.Story.ID,
+        	FileName:  fileName,
+   	}
+    	jsonData, err := json.Marshal(fileUpdate)
+    	if err != nil {
+        	e.logger.Error("Error marshalling JSON", zap.Any("error", err))
+        	return err
+    	}
+    	err = e.projectNotificationService.SendNotification(step.Project.ID, string(jsonData))
+    	if err!= nil {
+        	e.logger.Error("Error sending notification", zap.Any("error", err))
+        	return err
+    	}
+	
+    	return nil
 }
 
 func (e *NextJsUpdateCodeFileExecutor) UpdateReGeneratedCodeFile(response Response, step steps.UpdateCodeFileStep) error {
@@ -141,6 +177,7 @@ func (e *NextJsUpdateCodeFileExecutor) UpdateReGeneratedCodeFile(response Respon
 }
 
 func (e *NextJsUpdateCodeFileExecutor) EditCode(filePath string, startLine, endLine int, newCode string) error {
+	fmt.Printf("____Editing file %s_____", filePath)
 	fmt.Println("Start Line:", startLine)
 	fmt.Println("End Line:", endLine)
 	file, err := os.Open(filePath)
@@ -192,6 +229,7 @@ func (e *NextJsUpdateCodeFileExecutor) EditCode(filePath string, startLine, endL
 }
 
 func (e *NextJsUpdateCodeFileExecutor) InsertCode(filePath string, lineNumber int, newCode string) error {
+	fmt.Printf("____inserting code in file %s_____", filePath)
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Println("Error opening file", filePath, err.Error())
@@ -222,7 +260,8 @@ func (e *NextJsUpdateCodeFileExecutor) InsertCode(filePath string, lineNumber in
 	return nil
 }
 
-func (e NextJsUpdateCodeFileExecutor) UpdateCodeFile(llmResponse, fileName string, step steps.UpdateCodeFileStep) error {
+func (e *NextJsUpdateCodeFileExecutor) UpdateCodeFile(llmResponse, fileName string, step steps.UpdateCodeFileStep) error {
+	e.logger.Info("_____Updating file_____ %s", zap.String("fileName", fileName))
 	if strings.HasPrefix(llmResponse, "```") {
 		llmResponse = llmResponse[3:] // Remove the first 3 characters (```)
 		lines := strings.Split(llmResponse, "\n")
@@ -230,20 +269,12 @@ func (e NextJsUpdateCodeFileExecutor) UpdateCodeFile(llmResponse, fileName strin
 			llmResponse = strings.Join(lines[1:], "\n") // Join all lines except the first one
 		}
 	}
-
-	fmt.Println("___file name___",fileName)
 	if step.File != "" {
 		storyDir := config.FrontendWorkspacePath(step.Project.HashID, step.Story.HashID) + "/app/" + fileName
 		err := os.WriteFile(storyDir, []byte(llmResponse), 0644)
 		if err != nil {
 			return err
 		}
-	}
-
-	err := e.activityLogService.CreateActivityLog(step.Execution.ID, step.ExecutionStep.ID, "INFO", "Updated code files.")
-	if err != nil {
-		fmt.Println("Error creating activity log" + err.Error())
-		return err
 	}
 	return nil
 }

@@ -17,17 +17,19 @@ import TestCases from '@/components/StoryComponents/TestCases';
 import IssueContainer from '@/components/StoryComponents/InReviewIssue';
 import {
   handleInProgressStoryStatus,
-  handleStoryStatus,
   handleStoryInReviewIssue,
+  handleStoryStatus,
 } from '@/app/utils';
 import { useRouter } from 'next/navigation';
 import {
   StoryDetailsProps,
   StoryInReviewIssue,
 } from '../../../types/storyTypes';
-import { storyActions, storyStatus } from '@/app/constants/BoardConstants';
+import {
+  showStoryDetailsDropdown,
+  storyStatus,
+} from '@/app/constants/BoardConstants';
 import { useBoardContext } from '@/context/Boards';
-import toast from 'react-hot-toast';
 
 export default function StoryDetails({
   id,
@@ -118,12 +120,6 @@ export default function StoryDetails({
 
       action: () => toDeleteStory(),
     },
-  ];
-
-  const statusItems = [
-    { key: 'TODO', text: 'To Do', icon: imagePath.todoDot },
-    { key: 'IN_REVIEW', text: 'In Review', icon: imagePath.inReviewDot },
-    { key: 'DONE', text: 'Done', icon: imagePath.doneDot },
   ];
 
   const handleMoveToInProgressClick = async () => {
@@ -245,6 +241,7 @@ export default function StoryDetails({
                 maxHeight={'200px'}
                 gap={'10px'}
                 position={'end'}
+                show={showStoryDetailsDropdown.includes(storyDetails.status)}
               >
                 {dropdownItems &&
                   dropdownItems.map((item) => (
@@ -276,7 +273,6 @@ export default function StoryDetails({
               title={issue?.title}
               description={issue?.description}
               actions={issue?.actions || []}
-              imagePath={imagePath}
               handleMoveToInProgressClick={handleMoveToInProgressClick}
             />
           )}
